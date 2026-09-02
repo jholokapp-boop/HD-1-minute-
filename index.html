@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ফুল এইচডি 9:16 ভিডিও রেকর্ডার</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 20px;
+            background-color: #f4f4f9;
+        }
+        /* 9:16 রেশিও (লম্বালম্বি শর্টস ফ্রেম) */
+        video {
+            border: 2px solid #ccc;
+            border-radius: 12px;
+            background: #000;
+            width: 270px;
+            height: 480px;
+            object-fit: cover;
+            margin-bottom: 20px;
+            /* ডান হাত-বাঁ হাত উল্টো হওয়ার সমস্যা সমাধানের জন্য */
+            transform: scaleX(-1);
+            -webkit-transform: scaleX(-1);
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            margin: 5px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #007BFF;
+            color: white;
+            font-weight: bold;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        #status, #timer {
+            font-weight: bold;
+            margin: 10px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>১ মিনিট ফুল এইচডি (9:16) ভিডিও রেকর্ডার</h2>
+    <p>রেশিও: 9:16 | রেজোলিউশন: 1080x1920 (Full HD)</p>
+    <div id="timer">সময় বাকি: ৬০ সেকেন্ড</div>
+    
+    <div>
+        <video id="preview" autoplay muted playsinline></video>
+    </div>
+    
+    <div>
+        <button id="startBtn">রেকর্ড শুরু করুন</button>
+        <button id="stopBtn" disabled>রেকর্ড থামান</button>
+    </div>
+
+    <div id="status"></div>
+    
+    <div>
+        <!-- প্লেব্যাক প্রিভিউ -->
+        <video id="playback" controls style="display:none; width: 270px; height: 480px; transform: scaleX(-1);"></video>
+    </div>
+    
+    <div>
+        <a id="downloadLink" style="display:none;">
+            <button style="background-color: #28a745;">📥 ভিডিও ডাউনলোড করুন</button>
+        </a>
+    </div>
+
+    <script>
+        let mediaRecorder;
+        let recordedChunks = [];
+        let countdownInterval;
+        let timeLeft = 60; // ১ মিনিট
+        let stream;
+
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const preview = document.getElementById('preview');
+        const playback = document.getElementById('playback');
+        const downloadLink = document.getElementById('downloadLink');
+        const statusDiv = document.getElementById('status');
+        const timerDiv = document.getElementById('timer');
+
+        async function initCamera() {
+            try {
+                // 9:16 ফুল এইচডি (1080x1920) লম্বালম্বি রেজোলিউশন ফিক্সড করা হয়েছে
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        width: { ideal: 1080 }, 
+                        height: { ideal: 1920 },
+                        frameRate: { ideal: 30 } 
+                    },
+                    audio: false 
+                });
+                preview.srcObject = stream;
+            } catch (error) {
+                alert('ক্যামেরা ফুল এইচডি সাপোর্ট করতে সমস্যা করছে: ' + error.message);
+            }
+        }
+
+        initCamera();
+
+        startBtn.addEventListener('click', async () => {
+            if (!stream) {
+                await initCamera();
+                if (!stream) return;
+            }
+            
+            recordedChunks = [];
+            
+            // ফুল এইচডি ক্রিস্টাল ক্লিয়ার কোয়ালিটির জন্য বিটরেট হাই (৫ এমবিপিএস) রাখা হয়েছে
+            const options = { 
+                mimeType: 'video/webm;codecs=vp8',
+                videoBitsPerSecond: 5000000 
+            };
+
+            try {
+                mediaRecorder = new MediaRecorder(stream, options);
+            } catch (e) {
+                mediaRecorder = new MediaRecorder(stream);
+            }
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    recordedChunks.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const videoURL = URL.createObjectURL(blob);
+                
+                playback.src = videoURL;
+                playback.style.display = 'inline-block';
+                
+                const sizeInMB = (blob.size / (1024 * 1024)).toFixed(2);
+                statusDiv.innerText = `রেকর্ড সম্পন্ন! ফাইলের সাইজ: ${sizeInMB} MB (Full HD)`;
+                
+                downloadLink.href = videoURL;
+                downloadLink.download = 'full-hd-shorts-video.webm';
+                downloadLink.style.display = 'inline-block';
+            };
+
+            mediaRecorder.start();
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            statusDiv.innerText = 'ফুল এইচডি রেকর্ড হচ্ছে...';
+            playback.style.display = 'none';
+            downloadLink.style.display = 'none';
+            
+            timeLeft = 60;
+            timerDiv.innerText = `সময় বাকি: ${timeLeft} সেকেন্ড`;
+            
+            clearInterval(countdownInterval);
+            countdownInterval = setInterval(() => {
+                timeLeft--;
+                timerDiv.innerText = `সময় বাকি: ${timeLeft} সেকেন্ড`;
+                if (timeLeft <= 0) {
+                    stopRecording();
+                }
+            }, 1000);
+        });
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== "inactive") {
+                mediaRecorder.stop();
+            }
+            clearInterval(countdownInterval);
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            timerDiv.innerText = 'রেকর্ডিং শেষ';
+        }
+
+        stopBtn.addEventListener('click', stopRecording);
+    </script>
+</body>
+</html>
